@@ -9,8 +9,9 @@ import greennet
 
 def echo(sock):
     with closing(sock):
+        bufsize = sock.getsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF)
         while True:
-            data = greennet.recv(sock, socket.SO_RCVBUF)
+            data = greennet.recv(sock, bufsize)
             if not data:
                 break
             greennet.sendall(sock, data)
