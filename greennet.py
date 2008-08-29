@@ -147,8 +147,7 @@ def sendall(sock, data, timeout=None):
     if timeout is not None:
         end = time.time() + timeout
     while data:
-        writeable(sock, timeout=timeout)
-        data = data[sock.send(data):]
+        data = data[send(sock, data, timeout):]
         if timeout is not None:
             timeout = end - time.time()
 
