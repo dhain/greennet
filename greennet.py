@@ -125,29 +125,36 @@ def switch():
     get_hub().switch()
 
 
+def readable(obj, timeout=None):
+    get_hub().poll(obj, read=True, timeout=timeout)
+
+
+def writeable(obj, timeout=None):
+    get_hub().poll(obj, read=True, timeout=timeout)
+
+
 def accept(sock, timeout=None):
-    get_hub().poll(sock, read=True, timeout=timeout)
+    readable(sock, timeout=timeout)
     return sock.accept()
 
 
 def send(sock, data, timeout=None):
-    get_hub().poll(sock, write=True, timeout=timeout)
+    writeable(sock, timeout=timeout)
     return sock.send(data)
 
 
 def sendall(sock, data, timeout=None):
     if timeout is not None:
         end = time.time() + timeout
-    h = get_hub()
     while data:
-        h.poll(sock, write=True, timeout=timeout)
+        writeable(sock, timeout=timeout)
         data = data[sock.send(data):]
         if timeout is not None:
             timeout = end - time.time()
 
 
 def recv(sock, bufsize, flags=0, timeout=None):
-    get_hub().poll(sock, read=True, timeout=timeout)
+    readable(sock, timeout=timeout)
     return sock.recv(bufsize, flags)
 
 
@@ -155,7 +162,6 @@ def connect(sock, addr, timeout=None):
     sock_timeout = sock.gettimeout()
     if sock_timeout != 0.0:
         sock.setblocking(False)
-    h = get_hub()
     try:
         while True:
             try:
@@ -169,9 +175,9 @@ def connect(sock, addr, timeout=None):
                 elif err.args[0] != errno.EINTR:
                     raise
         if sys.platform == 'win32':
-            h.poll(sock, write=True, exc=True, timeout=timeout)
+            get_hub().poll(sock, write=True, exc=True, timeout=timeout)
         else:
-            h.poll(sock, write=True, timeout=timeout)
+            writeable(sock, timeout=timeout)
         err = sock.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
         if err != 0:
             raise socket.error(err, os.strerror(err))
