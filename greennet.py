@@ -130,7 +130,7 @@ def readable(obj, timeout=None):
 
 
 def writeable(obj, timeout=None):
-    get_hub().poll(obj, read=True, timeout=timeout)
+    get_hub().poll(obj, write=True, timeout=timeout)
 
 
 def accept(sock, timeout=None):
