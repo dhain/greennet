@@ -5,108 +5,146 @@ import errno
 import heapq
 import time
 import socket
+from itertools import chain
 from collections import deque, defaultdict
 
 from py.magic import greenlet
+
+
+READ = 1
+WRITE = 2
+EXC = 4
 
 
 class Timeout(Exception):
     pass
 
 
+class Wait(object):
+    __slots__ = ('task', 'expires')
+    
+    def __init__(self, task, expires):
+        self.task = task
+        self.expires = expires
+    
+    def timeout(self):
+        self.task.throw(Timeout)
+    
+    def __cmp__(self, other):
+        return cmp(self.expires, other.expires)
+
+
+class Sleep(Wait):
+    __slots__ = ()
+    
+    def timeout(self):
+        self.task.switch()
+
+
+class FDWait(Wait):
+    __slots__ = ('fd', 'mask')
+    
+    def __init__(self, task, fd, read=False,
+                 write=False, exc=False, expires=None):
+        super(FDWait, self).__init__(task, expires)
+        self.fd = fd
+        self.mask = (read and READ) | (write and WRITE) | (exc and EXC)
+    
+    def fileno(self):
+        return self.fd
+
+
 class Hub(object):
     def __init__(self):
         self.greenlet = greenlet(self._run)
-        self.readers = defaultdict(deque)
-        self.writers = defaultdict(deque)
-        self.excs = defaultdict(deque)
+        self.fdwaits = []
         self.timeouts = []
         self.tasks = deque()
     
     def poll(self, fd, read=False, write=False, exc=False, timeout=None):
+        expires = None if timeout is None else time.time() + timeout
         if hasattr(fd, 'fileno'):
             fd = fd.fileno()
-        g = greenlet.getcurrent()
-        if read:
-            self.readers[fd].append(g)
-        if write:
-            self.writers[fd].append(g)
-        if exc:
-            self.excs[fd].append(g)
+        wait = FDWait(greenlet.getcurrent(), fd, read, write, exc, expires)
+        self.fdwaits.append(wait)
         if timeout is not None:
-            heapq.heappush(self.timeouts, (time.time() + timeout, fd, g))
+            self._add_timeout(wait)
+        self.greenlet.switch()
+    
+    def sleep(self, timeout):
+        expires = time.time() + timeout
+        sleep = Sleep(greenlet.getcurrent(), expires)
+        self._add_timeout(sleep)
         self.greenlet.switch()
     
     def schedule(self, task, *args, **kwargs):
-        task.parent = self.greenlet
+        try:
+            task.parent = self.greenlet
+        except ValueError:
+            pass
         self.tasks.append((task, args, kwargs))
     
     def switch(self):
         self.schedule(greenlet.getcurrent())
         self.greenlet.switch()
     
-    def _remove_wait(self, fd, g):
-        if fd in self.readers:
-            if len(self.readers[fd]) < 2:
-                del self.readers[fd]
-            else:
-                self.readers[fd].remove(g)
-        if fd in self.writers:
-            if len(self.writers[fd]) < 2:
-                del self.writers[fd]
-            else:
-                self.writers[fd].remove(g)
-        if fd in self.excs:
-            if len(self.excs[fd]) < 2:
-                del self.excs[fd]
-            else:
-                self.excs[fd].remove(g)
+    def run(self):
+        self.greenlet.switch()
     
     def _run_tasks(self):
         for _ in xrange(len(self.tasks)):
             task, args, kwargs = self.tasks.popleft()
             task.switch(*args, **kwargs)
     
+    def _add_timeout(self, item):
+        heapq.heappush(self.timeouts, item)
+    
+    def _remove_timeout(self, item):
+        self.timeouts.remove(item)
+        heapq.heapify(self.timeouts)
+    
     def _handle_timeouts(self):
         while self.timeouts:
-            timeout, fd, g = self.timeouts[0]
-            timeout -= time.time()
+            wait = self.timeouts[0]
+            timeout = wait.expires - time.time()
             if timeout <= 0.0:
                 heapq.heappop(self.timeouts)
-                self._remove_wait(fd, g)
-                g.throw(Timeout)
+                if isinstance(wait, FDWait):
+                    self.fdwaits.remove(wait)
+                wait.timeout()
             else:
                 return timeout
     
     def _run(self):
-        while self.readers or self.writers or self.excs or self.tasks:
+        while self.fdwaits or self.tasks or self.timeouts:
             self._run_tasks()
-            args = [self.readers.keys(),
-                    self.writers.keys(),
-                    self.excs.keys()]
-            while True:
+            if self.fdwaits:
+                r = []; w = []; e = []
+                for wait in self.fdwaits:
+                    if wait.mask & READ:
+                        r.append(wait)
+                    if wait.mask & WRITE:
+                        w.append(wait)
+                    if wait.mask & EXC:
+                        e.append(wait)
+                while True:
+                    timeout = self._handle_timeouts()
+                    try:
+                        r, w, e = select.select(r, w, e, timeout)
+                    except (select.error, IOError, OSError), e:
+                        if e.args[0] == errno.EINTR:
+                            continue
+                        raise
+                    break
+                for wait in chain(r, w, e):
+                    self.fdwaits.remove(wait)
+                    if wait.expires is not None:
+                        self._remove_timeout(wait)
+                    wait.task.switch()
+            elif self.timeouts:
                 timeout = self._handle_timeouts()
                 if timeout is not None:
-                    args.append(timeout)
-                try:
-                    r, w, e = select.select(*args)
-                except select.error, e:
-                    if e.args[0] == errno.EINTR:
-                        continue
-                    raise
-                break
-            for fd in r:
-                for g in self.readers.pop(fd):
-                    self._remove_wait(fd, g)
-                    g.switch()
-            for fd in w:
-                for g in self.writers.pop(fd):
-                    self._remove_wait(fd, g)
-                    g.switch()
-            for fd in e:
-                for g in self.excs.pop(fd):
-                    self._remove_wait(fd, g)
-                    g.switch()
+                    time.sleep(timeout)
 
 
 _hub = None
@@ -123,6 +161,14 @@ def schedule(task, *args, **kwargs):
 
 def switch():
     get_hub().switch()
+
+
+def run():
+    get_hub().run()
+
+
+def sleep(timeout):
+    get_hub().sleep(timeout)
 
 
 def readable(obj, timeout=None):
