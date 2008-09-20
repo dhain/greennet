@@ -57,7 +57,7 @@ class FDWait(Wait):
 class Hub(object):
     def __init__(self):
         self.greenlet = greenlet(self._run)
-        self.fdwaits = []
+        self.fdwaits = set()
         self.timeouts = []
         self.tasks = deque()
     
@@ -66,7 +66,7 @@ class Hub(object):
         if hasattr(fd, 'fileno'):
             fd = fd.fileno()
         wait = FDWait(greenlet.getcurrent(), fd, read, write, exc, expires)
-        self.fdwaits.append(wait)
+        self.fdwaits.add(wait)
         if timeout is not None:
             self._add_timeout(wait)
         self.greenlet.switch()
@@ -97,6 +97,7 @@ class Hub(object):
             task.switch(*args, **kwargs)
     
     def _add_timeout(self, item):
+        assert item not in self.timeouts
         heapq.heappush(self.timeouts, item)
     
     def _remove_timeout(self, item):
@@ -119,20 +120,20 @@ class Hub(object):
         while self.fdwaits or self.tasks or self.timeouts:
             self._run_tasks()
             if self.fdwaits:
-                r = []; w = []; e = []
-                for wait in self.fdwaits:
-                    if wait.mask & READ:
-                        r.append(wait)
-                    if wait.mask & WRITE:
-                        w.append(wait)
-                    if wait.mask & EXC:
-                        e.append(wait)
                 while True:
                     timeout = self._handle_timeouts()
+                    r = []; w = []; e = []
+                    for wait in self.fdwaits:
+                        if wait.mask & READ:
+                            r.append(wait)
+                        if wait.mask & WRITE:
+                            w.append(wait)
+                        if wait.mask & EXC:
+                            e.append(wait)
                     try:
                         r, w, e = select.select(r, w, e, timeout)
-                    except (select.error, IOError, OSError), e:
-                        if e.args[0] == errno.EINTR:
+                    except (select.error, IOError, OSError), err:
+                        if err.args[0] == errno.EINTR:
                             continue
                         raise
                     break
