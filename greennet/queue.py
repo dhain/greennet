@@ -1,8 +1,7 @@
 import time
 from collections import deque
 
-from py.magic import greenlet
-
+from greennet import greenlet
 from greennet import get_hub
 from greennet.hub import Wait
 

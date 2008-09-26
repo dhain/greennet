@@ -3,6 +3,8 @@ import sys
 import time
 import socket
 
+from py.magic import greenlet
+
 from greennet.hub import Hub, Timeout
 from greennet.util import prefixes
 

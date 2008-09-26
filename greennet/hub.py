@@ -6,8 +6,7 @@ import socket
 from itertools import chain
 from collections import deque, defaultdict
 
-from py.magic import greenlet
-
+from greennet import greenlet
 
 READ = 1
 WRITE = 2

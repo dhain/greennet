@@ -4,9 +4,9 @@ import time
 import socket
 
 from OpenSSL import SSL, crypto
-from py.magic import greenlet
 
 import greennet
+from greennet import greenlet
 
 
 class peekable(object):
