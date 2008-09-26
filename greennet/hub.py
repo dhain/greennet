@@ -90,7 +90,7 @@ class Hub(object):
         self.greenlet.switch()
     
     def _run_tasks(self):
-        for _ in xrange(len(self.tasks)):
+        while self.tasks:
             task, args, kwargs = self.tasks.popleft()
             task.switch(*args, **kwargs)
     
