@@ -110,7 +110,8 @@ class Hub(object):
                 heapq.heappop(self.timeouts)
                 if isinstance(wait, FDWait):
                     self.fdwaits.remove(wait)
-                wait.timeout()
+                self.schedule(greenlet(wait.timeout))
+                self._run_tasks()
             else:
                 return timeout
     
@@ -139,7 +140,7 @@ class Hub(object):
                     self.fdwaits.remove(wait)
                     if wait.expires is not None:
                         self._remove_timeout(wait)
-                    wait.task.switch()
+                    self.schedule(wait.task)
             elif self.timeouts:
                 timeout = self._handle_timeouts()
                 if timeout is not None:
