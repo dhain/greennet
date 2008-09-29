@@ -137,18 +137,18 @@ def recv_until(sock, term, bufsize=None, timeout=None):
             raise ConnectionLost()
         test = data.find(term)
         if test > -1:
-            data = _recv(sock, test + len(term))
+            data = sock.recv(test + len(term))
             yield data
             break
         for p in prefixes(term):
             if data.endswith(p):
                 seen = len(data) - len(p)
                 if seen:
-                    data = _recv(sock, seen)
+                    data = sock.recv(seen)
                     yield data
                 break
         else:
-            data = _recv(sock, len(data))
+            data = sock.recv(len(data))
             yield data
         if timeout is not None:
             timeout = end - time.time()
