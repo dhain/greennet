@@ -154,12 +154,3 @@ def recv(sock, bufsize, flags=0, timeout=None):
 def send(sock, data, timeout=None):
     return _io(greennet.send, sock, (data,), timeout=timeout)
 
-
-def sendall(sock, data, timeout=None):
-    if timeout is not None:
-        end = time.time() + timeout
-    while data:
-        data = data[send(sock, data):]
-        if timeout is not None:
-            timeout = end - time.time()
-

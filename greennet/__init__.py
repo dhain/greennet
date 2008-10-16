@@ -88,18 +88,22 @@ def send(sock, data, timeout=None):
     return sock.send(data)
 
 
-def sendall(sock, data, timeout=None):
-    if timeout is not None:
-        end = time.time() + timeout
-    while data:
-        data = data[send(sock, data, timeout):]
-        if timeout is not None:
-            timeout = end - time.time()
-
-
 def recv(sock, bufsize, flags=0, timeout=None):
     readable(sock, timeout=timeout)
     return sock.recv(bufsize, flags)
+
+
+def sendall(sock, data, timeout=None):
+    if ssl and isinstance(sock, ssl.peekable):
+        _send = ssl.send
+    else:
+        _send = send
+    if timeout is not None:
+        end = time.time() + timeout
+    while data:
+        data = data[_send(sock, data, timeout):]
+        if timeout is not None:
+            timeout = end - time.time()
 
 
 def recv_bytes(sock, n, bufsize=None, timeout=None):
