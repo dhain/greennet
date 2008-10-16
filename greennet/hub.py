@@ -4,7 +4,7 @@ import heapq
 import time
 import socket
 from itertools import chain
-from collections import deque, defaultdict
+from collections import deque
 
 from greennet import greenlet
 
