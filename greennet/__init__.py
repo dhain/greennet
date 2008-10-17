@@ -15,11 +15,13 @@ except ImportError:
 
 
 class ConnectionLost(Exception):
+    """Connection was terminated."""
     pass
 
 
 _hub = None
 def get_hub():
+    """Return the global Hub instance."""
     global _hub
     if _hub is None:
         _hub = Hub()
@@ -27,30 +29,43 @@ def get_hub():
 
 
 def schedule(task, *args, **kwargs):
+    """Schedule a task to be run during the next iteration of the loop."""
     get_hub().schedule(task, *args, **kwargs)
 
 
 def switch():
+    """Reschedule the current task, and run the event-loop."""
     get_hub().switch()
 
 
 def run():
+    """Run the event loop.
+    
+    This will only return when there is nothing more scheduled to run.
+    """
     get_hub().run()
 
 
 def sleep(timeout):
+    """Suspend the current task for the specified number of seconds."""
     get_hub().sleep(timeout)
 
 
 def readable(obj, timeout=None):
+    """Suspend the current task until the selectable-object is readable."""
     get_hub().poll(obj, read=True, timeout=timeout)
 
 
 def writeable(obj, timeout=None):
+    """Suspend the current task until the selectable-object is writable."""
     get_hub().poll(obj, write=True, timeout=timeout)
 
 
 def connect(sock, addr, timeout=None):
+    """Connect a socket to the specified address.
+    
+    Suspends the current task until the connection is established.
+    """
     sock_timeout = sock.gettimeout()
     if sock_timeout != 0.0:
         sock.setblocking(False)
@@ -79,21 +94,25 @@ def connect(sock, addr, timeout=None):
 
 
 def accept(sock, timeout=None):
+    """Accept a connection on the given socket."""
     readable(sock, timeout=timeout)
     return sock.accept()
 
 
 def send(sock, data, timeout=None):
+    """Send some data on the given socket."""
     writeable(sock, timeout=timeout)
     return sock.send(data)
 
 
 def recv(sock, bufsize, flags=0, timeout=None):
+    """Receive some data from the given socket."""
     readable(sock, timeout=timeout)
     return sock.recv(bufsize, flags)
 
 
 def sendall(sock, data, timeout=None):
+    """Send all data on the given socket."""
     if ssl and isinstance(sock, ssl.peekable):
         _send = ssl.send
     else:
@@ -107,6 +126,13 @@ def sendall(sock, data, timeout=None):
 
 
 def recv_bytes(sock, n, bufsize=None, timeout=None):
+    """Receive specified number of bytes from socket.
+    
+    Generator yields data as it becomes available.
+    
+    Raises ConnectionLost if the connection is terminated before the
+    specified number of bytes is read.
+    """
     if ssl and isinstance(sock, ssl.peekable):
         _recv = ssl.recv
     else:
@@ -126,6 +152,13 @@ def recv_bytes(sock, n, bufsize=None, timeout=None):
 
 
 def recv_until(sock, term, bufsize=None, timeout=None):
+    """Receive from socket until the specified terminator.
+    
+    Generator yields data as it becomes available.
+    
+    Raises ConnectionLost if the connection is terminated before the
+    terminator is encountered.
+    """
     if ssl and isinstance(sock, ssl.peekable):
         _recv = ssl.recv
     else:
@@ -160,6 +193,8 @@ def recv_until(sock, term, bufsize=None, timeout=None):
 
 def recv_until_maxlen(sock, term, maxlen, exc_type,
                       bufsize=None, timeout=None):
+    """Like recv_until, but if the terminator is not encountered within a
+    given number of bytes, raises the given exception."""
     ret = ''
     for data in recv_until(sock, term, bufsize, timeout):
         ret += data
