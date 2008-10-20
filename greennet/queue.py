@@ -1,3 +1,6 @@
+"""A double-ended queue with an optional maximum size."""
+
+
 import time
 from collections import deque
 
