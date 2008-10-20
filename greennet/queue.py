@@ -47,9 +47,31 @@ class Queue(object):
         self._pop_waits = deque()
     
     def __len__(self):
+        """len(q) <==> q.__len__()
+        
+        >>> q = Queue()
+        >>> len(q)
+        0
+        >>> q.append('an item')
+        >>> len(q)
+        1
+        """
         return len(self.queue)
     
     def full(self):
+        """Returns True if the Queue is full, else False.
+        
+        >>> q = Queue(1)
+        >>> q.full()
+        False
+        >>> q.append('an item')
+        >>> q.full()
+        True
+        >>> q.pop()
+        'an item'
+        >>> q.full()
+        False
+        """
         if self.maxlen is None:
             return False
         return len(self.queue) >= self.maxlen
@@ -95,7 +117,16 @@ class Queue(object):
             self.hub.schedule(wait.task)
     
     def wait_until_empty(self, timeout=None):
-        """Suspend the current task until the Queue is empty."""
+        """Suspend the current task until the Queue is empty.
+        
+        >>> q = Queue()
+        >>> q.wait_until_empty()
+        >>> q.append('an item')
+        >>> q.wait_until_empty(0)
+        Traceback (most recent call last):
+            ...
+        Timeout
+        """
         if not self.queue:
             return
         expires = None if timeout is None else time.time() + timeout
@@ -108,7 +139,20 @@ class Queue(object):
         self._popped()
     
     def pop(self, timeout=None):
-        """Pop an item from the right side of the Queue."""
+        """Pop an item from the right side of the Queue.
+        
+        >>> q = Queue()
+        >>> q.append('an item')
+        >>> q.append('another item')
+        >>> q.pop()
+        'another item'
+        >>> q.pop()
+        'an item'
+        >>> q.pop(0)
+        Traceback (most recent call last):
+            ...
+        Timeout
+        """
         if not self.queue:
             self._wait_for_append(timeout)
         item = self.queue.pop()
@@ -116,7 +160,20 @@ class Queue(object):
         return item
     
     def popleft(self, timeout=None):
-        """Pop an item from the left side of the Queue."""
+        """Pop an item from the left side of the Queue.
+        
+        >>> q = Queue()
+        >>> q.append('an item')
+        >>> q.append('another item')
+        >>> q.popleft()
+        'an item'
+        >>> q.popleft()
+        'another item'
+        >>> q.popleft(0)
+        Traceback (most recent call last):
+            ...
+        Timeout
+        """
         if not self.queue:
             self._wait_for_append(timeout)
         item = self.queue.popleft()
@@ -124,21 +181,72 @@ class Queue(object):
         return item
     
     def clear(self):
-        """Remove all items from the Queue."""
+        """Remove all items from the Queue.
+        
+        >>> q = Queue()
+        >>> q.append('an item')
+        >>> len(q)
+        1
+        >>> q.clear()
+        >>> len(q)
+        0
+        """
         self.queue.clear()
         self._popped()
     
     def append(self, item, timeout=None):
-        """Append an item to the right side of the Queue."""
+        """Append an item to the right side of the Queue.
+        
+        >>> q = Queue(2)
+        >>> q.append('an item')
+        >>> len(q)
+        1
+        >>> q.append('another item')
+        >>> len(q)
+        2
+        >>> q.append('a third item', 0)
+        Traceback (most recent call last):
+            ...
+        Timeout
+        >>> len(q)
+        2
+        >>> q.popleft()
+        'an item'
+        >>> q.popleft()
+        'another item'
+        """
         if self.full():
             self._wait_for_pop(timeout)
         self.queue.append(item)
         self._appended()
     
     def appendleft(self, item, timeout=None):
-        """Append an item to the left side of the Queue."""
+        """Append an item to the left side of the Queue.
+        
+        >>> q = Queue(2)
+        >>> q.appendleft('an item')
+        >>> len(q)
+        1
+        >>> q.appendleft('another item')
+        >>> len(q)
+        2
+        >>> q.appendleft('a third item', 0)
+        Traceback (most recent call last):
+            ...
+        Timeout
+        >>> len(q)
+        2
+        >>> q.popleft()
+        'another item'
+        >>> q.popleft()
+        'an item'
+        """
         if self.full():
             self._wait_for_pop(timeout)
         self.queue.appendleft(item)
         self._appended()
 
+
+if __name__ == '__main__':
+    import doctest
+    doctest.testmod()
