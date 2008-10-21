@@ -1,6 +1,7 @@
 import os
 import sys
 import time
+import errno
 import socket
 
 from py.magic import greenlet
@@ -65,6 +66,22 @@ def connect(sock, addr, timeout=None):
     """Connect a socket to the specified address.
     
     Suspends the current task until the connection is established.
+    
+    >>> import socket
+    >>> s1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    >>> s2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    >>> s2.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    >>> s2.bind(('127.0.0.1', 12345))
+    >>> s2.listen(1)
+    >>> connect(s1, ('127.0.0.1', 12345))
+    >>> s3 = s2.accept()[0]
+    >>> s1.send('some data')
+    9
+    >>> s3.recv(9)
+    'some data'
+    >>> s3.close()
+    >>> s1.close()
+    >>> s2.close()
     """
     sock_timeout = sock.gettimeout()
     if sock_timeout != 0.0:
@@ -94,25 +111,81 @@ def connect(sock, addr, timeout=None):
 
 
 def accept(sock, timeout=None):
-    """Accept a connection on the given socket."""
+    """Accept a connection on the given socket.
+    
+    >>> import socket
+    >>> s1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    >>> s2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    >>> s2.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    >>> s2.bind(('127.0.0.1', 12345))
+    >>> s2.listen(1)
+    >>> accept(s2, 0)
+    Traceback (most recent call last):
+        ...
+    Timeout
+    >>> connect(s1, ('127.0.0.1', 12345))
+    >>> s3 = accept(s2)[0]
+    >>> s1.send('some data')
+    9
+    >>> s3.recv(9)
+    'some data'
+    >>> s3.close()
+    >>> s1.close()
+    >>> s2.close()
+    """
     readable(sock, timeout=timeout)
     return sock.accept()
 
 
 def send(sock, data, timeout=None):
-    """Send some data on the given socket."""
+    """Send some data on the given socket.
+    
+    >>> import socket
+    >>> s1, s2 = socket.socketpair()
+    >>> send(s1, 'some data')
+    9
+    >>> s2.recv(9)
+    'some data'
+    >>> s1.close()
+    >>> s2.close()
+    """
     writeable(sock, timeout=timeout)
     return sock.send(data)
 
 
 def recv(sock, bufsize, flags=0, timeout=None):
-    """Receive some data from the given socket."""
+    """Receive some data from the given socket.
+    
+    >>> import socket
+    >>> s1, s2 = socket.socketpair()
+    >>> recv(s2, 1, timeout=0)
+    Traceback (most recent call last):
+        ...
+    Timeout
+    >>> s1.send('some data')
+    9
+    >>> recv(s2, 4, socket.MSG_PEEK)
+    'some'
+    >>> recv(s2, 9)
+    'some data'
+    >>> s1.close()
+    >>> s2.close()
+    """
     readable(sock, timeout=timeout)
     return sock.recv(bufsize, flags)
 
 
 def sendall(sock, data, timeout=None):
-    """Send all data on the given socket."""
+    """Send all data on the given socket.
+    
+    >>> import socket
+    >>> s1, s2 = socket.socketpair()
+    >>> sendall(s1, 'some data')
+    >>> s2.recv(9)
+    'some data'
+    >>> s1.close()
+    >>> s2.close()
+    """
     if ssl and isinstance(sock, ssl.peekable):
         _send = ssl.send
     else:
@@ -132,6 +205,23 @@ def recv_bytes(sock, n, bufsize=None, timeout=None):
     
     Raises ConnectionLost if the connection is terminated before the
     specified number of bytes is read.
+    
+    >>> import socket
+    >>> s1, s2 = socket.socketpair()
+    >>> list(recv_bytes(s1, 9, timeout=0))
+    Traceback (most recent call last):
+        ...
+    Timeout
+    >>> s2.send('some data')
+    9
+    >>> list(recv_bytes(s1, 9))
+    ['some data']
+    >>> s2.send('some data')
+    9
+    >>> list(recv_bytes(s1, 9, 4))
+    ['some', ' dat', 'a']
+    >>> s1.close()
+    >>> s2.close()
     """
     if ssl and isinstance(sock, ssl.peekable):
         _recv = ssl.recv
@@ -158,6 +248,27 @@ def recv_until(sock, term, bufsize=None, timeout=None):
     
     Raises ConnectionLost if the connection is terminated before the
     terminator is encountered.
+    
+    >>> import socket
+    >>> s1, s2 = socket.socketpair()
+    >>> list(recv_until(s1, 'at', timeout=0))
+    Traceback (most recent call last):
+        ...
+    Timeout
+    >>> s2.send('some data')
+    9
+    >>> list(recv_until(s1, 'at'))
+    ['some dat']
+    >>> s1.recv(1)
+    'a'
+    >>> s2.send('some data')
+    9
+    >>> list(recv_until(s1, 'at', 4))
+    ['some', ' dat']
+    >>> s1.recv(1)
+    'a'
+    >>> s1.close()
+    >>> s2.close()
     """
     if ssl and isinstance(sock, ssl.peekable):
         _recv = ssl.recv
@@ -194,11 +305,39 @@ def recv_until(sock, term, bufsize=None, timeout=None):
 def recv_until_maxlen(sock, term, maxlen, exc_type,
                       bufsize=None, timeout=None):
     """Like recv_until, but if the terminator is not encountered within a
-    given number of bytes, raises the given exception."""
-    ret = ''
+    given number of bytes, raises the given exception.
+    
+    >>> import socket
+    >>> s1, s2 = socket.socketpair()
+    >>> list(recv_until_maxlen(s1, 'at', 9, RuntimeError, timeout=0))
+    Traceback (most recent call last):
+        ...
+    Timeout
+    >>> s2.send('some data')
+    9
+    >>> list(recv_until_maxlen(s1, 'at', 9, RuntimeError))
+    ['some dat']
+    >>> s1.recv(1)
+    'a'
+    >>> s2.send('some data')
+    9
+    >>> list(recv_until_maxlen(s1, 'at', 9, RuntimeError, 4))
+    ['some', ' dat']
+    >>> s1.recv(1)
+    'a'
+    >>> s2.send('some data')
+    9
+    >>> list(recv_until_maxlen(s1, 'at', 4, RuntimeError))
+    Traceback (most recent call last):
+        ...
+    RuntimeError
+    >>> s1.close()
+    >>> s2.close()
+    """
+    sofar = 0
     for data in recv_until(sock, term, bufsize, timeout):
-        ret += data
-        if len(ret) > maxlen:
-            raise exc()
-    return ret
+        sofar += len(data)
+        if sofar > maxlen:
+            raise exc_type()
+        yield data
 
