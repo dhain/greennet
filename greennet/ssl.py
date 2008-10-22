@@ -13,6 +13,29 @@ from greennet import greenlet
 
 
 class peekable(object):
+    
+    """Wrapper to add support for MSG_PEEK to SSL.Connection objects.
+    
+    >>> s1, s2 = peekablepair(dict(certfile='examples/certs/server.pem',
+    ...                            keyfile='examples/certs/server.key'),
+    ...                       dict(certfile='examples/certs/server.pem',
+    ...                            keyfile='examples/certs/server.key'))
+    >>> s1.pending()
+    0
+    >>> send(s2, 'some data')
+    9
+    >>> s1.recv(4, socket.MSG_PEEK)
+    'some'
+    >>> s1.pending()
+    9
+    >>> s1.recv(9)
+    'some data'
+    >>> s1.pending()
+    0
+    >>> s1.close()
+    >>> s2.close()
+    """
+    
     def __init__(self, connection):
         self._con = connection
         self.__buf = ''
@@ -84,12 +107,13 @@ def _io(op, sock, args=(), kw=None, timeout=None):
             kw['timeout'] = end - time.time()
 
 
-def connect(sock, address, cert=None, verify=None, timeout=None):
-    if timeout is not None:
-        end = time.time() + timeout
-    greennet.connect(sock, address, timeout)
-    if timeout is not None:
-        timeout = end - time.time()
+def connect(sock, address=None, cert=None, verify=None, timeout=None):
+    if address is not None:
+        if timeout is not None:
+            end = time.time() + timeout
+        greennet.connect(sock, address, timeout)
+        if timeout is not None:
+            timeout = end - time.time()
     sock = _setup_connection(sock, cert, verify)
     sock.set_connect_state()
     _io(lambda sock: sock.do_handshake(), sock, timeout=timeout)
@@ -101,6 +125,41 @@ def accept(sock, cert=None, verify=None, timeout=None):
     sock.set_accept_state()
     _io(lambda sock: sock.do_handshake(), sock, timeout=timeout)
     return sock
+
+
+def peekablepair(cert1, cert2):
+    """Return a pair of connected peekable SSL connections.
+    
+    >>> s1, s2 = peekablepair(dict(certfile='examples/certs/server.pem',
+    ...                            keyfile='examples/certs/server.key'),
+    ...                       dict(certfile='examples/certs/server.pem',
+    ...                            keyfile='examples/certs/server.key'))
+    >>> send(s2, 'some data')
+    9
+    >>> s1.recv(9)
+    'some data'
+    >>> s1.close()
+    >>> s2.close()
+    """
+    s1, s2 = socket.socketpair()
+    s1 = _setup_connection(s1, cert1, None)
+    s2 = _setup_connection(s2, cert2, None)
+    s1.set_accept_state()
+    s2.set_connect_state()
+    socks = [s1, s2]
+    handshaking = [True, True]
+    while any(handshaking):
+        for i, h in enumerate(handshaking):
+            if not h:
+                continue
+            try:
+                socks[i].do_handshake()
+                handshaking[i] = False
+            except SSL.WantReadError:
+                pass
+            except SSL.WantWriteError:
+                pass
+    return s1, s2
 
 
 def shutdown(sock, timeout=None):
