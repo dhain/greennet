@@ -69,6 +69,7 @@ class peekable(object):
 
 
 def _setup_connection(sock, cert, verify):
+    """Wrap a socket in SSL.Connection and peekable objects."""
     ctx = SSL.Context(SSL.SSLv23_METHOD)
     ctx.set_options(SSL.OP_NO_SSLv2)
     ctx.set_options(SSL.OP_SINGLE_DH_USE)
@@ -87,6 +88,7 @@ def _setup_connection(sock, cert, verify):
 
 
 def _io(op, sock, args=(), kw=None, timeout=None):
+    """Perform an operation, handling SSL error conditions."""
     if kw is None:
         kw = {}
     if timeout is None:
@@ -108,6 +110,16 @@ def _io(op, sock, args=(), kw=None, timeout=None):
 
 
 def connect(sock, address=None, cert=None, verify=None, timeout=None):
+    """Connect using SSL.
+    
+    If address is None or not specified, sock is expected to be a connected
+    regular socket. If address is specified, sock must be unconnected, and
+    will be connected to the specified address. This function starts client-
+    side SSL (using set_connect_state).
+    
+    The calling task will be suspended until the socket is connected and the
+    SSL handshake is complete.
+    """
     if address is not None:
         if timeout is not None:
             end = time.time() + timeout
@@ -121,6 +133,13 @@ def connect(sock, address=None, cert=None, verify=None, timeout=None):
 
 
 def accept(sock, cert=None, verify=None, timeout=None):
+    """Accept an SSL connection.
+    
+    The sock argument is an already connected socket-like object. This
+    function starts server-side SSL (using set_accept_state).
+    
+    The calling task will be suspended until the SSL handshake is complete.
+    """
     sock = _setup_connection(sock, cert, verify)
     sock.set_accept_state()
     _io(lambda sock: sock.do_handshake(), sock, timeout=timeout)
@@ -163,6 +182,11 @@ def peekablepair(cert1, cert2):
 
 
 def shutdown(sock, timeout=None):
+    """Shut down SSL.
+    
+    Calls the SSL shutdown method until it completes. The calling task will be
+    suspended until this completes.
+    """
     if timeout is not None:
         end = time.time() + timeout
     h = greennet.get_hub()
@@ -174,6 +198,11 @@ def shutdown(sock, timeout=None):
 
 
 def renegotiate_client(sock, cert=None, verify=None, timeout=None):
+    """Renegotiate the SSL connection (client-side).
+    
+    Specify new certificates and verification options, and re-handshake. The
+    calling task will be suspended until the re-handshake is complete.
+    """
     ctx = sock.get_context()
     if cert is not None:
         ctx.use_certificate_file(cert['certfile'])
@@ -188,6 +217,11 @@ def renegotiate_client(sock, cert=None, verify=None, timeout=None):
 
 
 def renegotiate_server(sock, cert=None, verify=None, timeout=None):
+    """Renegotiate the SSL connection (server-side).
+    
+    Specify new certificates and verification options, and re-handshake. The
+    calling task will be suspended until the re-handshake is complete.
+    """
     if timeout is not None:
         end = time.time() + timeout
     shutdown(sock, timeout)
@@ -201,6 +235,7 @@ def renegotiate_server(sock, cert=None, verify=None, timeout=None):
 
 
 def recv(sock, bufsize, flags=0, timeout=None):
+    """Receive some data from the given SSL connection."""
     pending = sock.pending()
     if pending:
         args = (min(bufsize, pending),)
@@ -214,5 +249,6 @@ def recv(sock, bufsize, flags=0, timeout=None):
 
 
 def send(sock, data, timeout=None):
+    """Send some data on the given SSL connection."""
     return _io(greennet.send, sock, (data,), timeout=timeout)
 
