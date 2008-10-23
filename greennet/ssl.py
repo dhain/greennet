@@ -16,10 +16,10 @@ class peekable(object):
     
     """Wrapper to add support for MSG_PEEK to SSL.Connection objects.
     
-    >>> s1, s2 = peekablepair(dict(certfile='examples/certs/server.pem',
-    ...                            keyfile='examples/certs/server.key'),
-    ...                       dict(certfile='examples/certs/server.pem',
-    ...                            keyfile='examples/certs/server.key'))
+    >>> s1, s2 = peekablepair(dict(certfile='../examples/certs/server.pem',
+    ...                            keyfile='../examples/certs/server.key'),
+    ...                       dict(certfile='../examples/certs/server.pem',
+    ...                            keyfile='../examples/certs/server.key'))
     >>> s1.pending()
     0
     >>> send(s2, 'some data')
@@ -149,10 +149,10 @@ def accept(sock, cert=None, verify=None, timeout=None):
 def peekablepair(cert1, cert2):
     """Return a pair of connected peekable SSL connections.
     
-    >>> s1, s2 = peekablepair(dict(certfile='examples/certs/server.pem',
-    ...                            keyfile='examples/certs/server.key'),
-    ...                       dict(certfile='examples/certs/server.pem',
-    ...                            keyfile='examples/certs/server.key'))
+    >>> s1, s2 = peekablepair(dict(certfile='../examples/certs/server.pem',
+    ...                            keyfile='../examples/certs/server.key'),
+    ...                       dict(certfile='../examples/certs/server.pem',
+    ...                            keyfile='../examples/certs/server.key'))
     >>> send(s2, 'some data')
     9
     >>> s1.recv(9)

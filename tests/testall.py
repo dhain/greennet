@@ -18,11 +18,20 @@ modules = (
     'greennet.util',
 )
 
+test_modules = (
+    'test_hub',
+)
+
 
 if __name__ == '__main__':
     suite = unittest.TestSuite()
+    doc_suite = unittest.TestSuite()
     for m in modules:
         mod = mod_import(m)
-        suite.addTest(doctest.DocTestSuite(mod))
-    runner = unittest.TextTestRunner()
+        doc_suite.addTest(doctest.DocTestSuite(mod))
+    suite.addTests(doc_suite)
+    for m in test_modules:
+        mod = mod_import(m)
+        suite.addTests(unittest.defaultTestLoader.loadTestsFromModule(mod))
+    runner = unittest.TextTestRunner(verbosity=2)
     runner.run(suite)
