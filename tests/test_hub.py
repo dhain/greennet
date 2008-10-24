@@ -20,6 +20,34 @@ class TestHub(unittest.TestCase):
         self.assert_(duration < timeout + IMMEDIATE_THRESHOLD
                      and duration > timeout - IMMEDIATE_THRESHOLD)
     
+    def test_call_later(self):
+        a = [0]
+        def task():
+            a[0] = 1
+        timeout = 0.5
+        start = time.time()
+        self.hub.call_later(greennet.greenlet(task), timeout)
+        self.hub.run()
+        duration = time.time() - start
+        self.assert_(duration < timeout + IMMEDIATE_THRESHOLD
+                     and duration > timeout - IMMEDIATE_THRESHOLD)
+        self.assertEqual(a[0], 1)
+    
+    def test_call_later_with_args(self):
+        a = [0]
+        def task(arg1, arg2, *args):
+            a.append(arg1)
+            a.append(arg2)
+            a.extend(args)
+        timeout = 0.5
+        start = time.time()
+        self.hub.call_later(greennet.greenlet(task), timeout, 1, 2, *(3, 4))
+        self.hub.run()
+        duration = time.time() - start
+        self.assert_(duration < timeout + IMMEDIATE_THRESHOLD
+                     and duration > timeout - IMMEDIATE_THRESHOLD)
+        self.assertEqual(a, [0, 1, 2, 3, 4])
+    
     def test_run(self):
         a = [0, 0]
         def task1():

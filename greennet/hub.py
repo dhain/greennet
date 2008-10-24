@@ -47,11 +47,16 @@ class Sleep(Wait):
     
     """Sleep for the specified timeout, then resume."""
     
-    __slots__ = ()
+    __slots__ = ('args', 'kwargs')
+    
+    def __init__(self, task, expires, args=(), kwargs={}):
+        super(Sleep, self).__init__(task, expires)
+        self.args = args
+        self.kwargs = kwargs
     
     def timeout(self):
         """Resumes task instead of raising Timeout."""
-        self.task.switch()
+        self.task.switch(*self.args, **self.kwargs)
 
 
 class FDWait(Wait):
@@ -100,6 +105,12 @@ class Hub(object):
         sleep = Sleep(greenlet.getcurrent(), expires)
         self._add_timeout(sleep)
         self.greenlet.switch()
+    
+    def call_later(self, task, timeout, *args, **kwargs):
+        """Switch to a task after the specified number of seconds."""
+        expires = time.time() + timeout
+        sleep = Sleep(task, expires, args, kwargs)
+        self._add_timeout(sleep)
     
     def schedule(self, task, *args, **kwargs):
         """Schedule a task to be run during the next iteration of the loop."""
