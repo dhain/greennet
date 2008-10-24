@@ -52,6 +52,11 @@ def sleep(timeout):
     get_hub().sleep(timeout)
 
 
+def call_later(task, timeout, *args, **kwargs):
+    """Run the task after the specified number of seconds."""
+    get_hub().call_later(task, timeout, *args, **kwargs)
+
+
 def readable(obj, timeout=None):
     """Suspend the current task until the selectable-object is readable."""
     get_hub().poll(obj, read=True, timeout=timeout)
