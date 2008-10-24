@@ -20,6 +20,7 @@ modules = (
 
 test_modules = (
     'test_hub',
+    'test_queue',
 )
 
 
