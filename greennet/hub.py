@@ -107,7 +107,7 @@ class Hub(object):
         self.greenlet.switch()
     
     def call_later(self, task, timeout, *args, **kwargs):
-        """Switch to a task after the specified number of seconds."""
+        """Run the task after the specified number of seconds."""
         expires = time.time() + timeout
         sleep = Sleep(task, expires, args, kwargs)
         self._add_timeout(sleep)
