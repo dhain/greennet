@@ -40,6 +40,17 @@ class TestHub(unittest.TestCase):
         self.hub.run()
         self.assertEqual(a[0], 1)
     
+    def test_schedule_with_args(self):
+        a = [0]
+        def task(arg1, arg2, *args):
+            a.append(arg1)
+            a.append(arg2)
+            a.extend(args)
+        self.hub.schedule(greennet.greenlet(task),
+                          1, 2, *(3, 4))
+        self.hub.run()
+        self.assertEqual(a, [0, 1, 2, 3, 4])
+    
     def test_switch(self):
         a = [0]
         def task():
