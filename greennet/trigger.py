@@ -34,6 +34,7 @@ class Trigger(object):
                 elif err.args[0] == errno.EAGAIN:
                     return
                 raise
+            return
     
     def close(self):
         self._closed = True
