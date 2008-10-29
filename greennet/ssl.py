@@ -14,27 +14,7 @@ from greennet import greenlet
 
 class peekable(object):
     
-    """Wrapper to add support for MSG_PEEK to SSL.Connection objects.
-    
-    >>> s1, s2 = peekablepair(dict(certfile='../examples/certs/server.pem',
-    ...                            keyfile='../examples/certs/server.key'),
-    ...                       dict(certfile='../examples/certs/server.pem',
-    ...                            keyfile='../examples/certs/server.key'))
-    >>> s1.pending()
-    0
-    >>> send(s2, 'some data')
-    9
-    >>> s1.recv(4, socket.MSG_PEEK)
-    'some'
-    >>> s1.pending()
-    9
-    >>> s1.recv(9)
-    'some data'
-    >>> s1.pending()
-    0
-    >>> s1.close()
-    >>> s2.close()
-    """
+    """Wrapper to add support for MSG_PEEK to SSL.Connection objects."""
     
     def __init__(self, connection):
         self._con = connection
@@ -147,19 +127,7 @@ def accept(sock, cert=None, verify=None, timeout=None):
 
 
 def peekablepair(cert1, cert2):
-    """Return a pair of connected peekable SSL connections.
-    
-    >>> s1, s2 = peekablepair(dict(certfile='../examples/certs/server.pem',
-    ...                            keyfile='../examples/certs/server.key'),
-    ...                       dict(certfile='../examples/certs/server.pem',
-    ...                            keyfile='../examples/certs/server.key'))
-    >>> send(s2, 'some data')
-    9
-    >>> s1.recv(9)
-    'some data'
-    >>> s1.close()
-    >>> s2.close()
-    """
+    """Return a pair of connected peekable SSL connections."""
     s1, s2 = socket.socketpair()
     s1 = _setup_connection(s1, cert1, None)
     s2 = _setup_connection(s2, cert2, None)
