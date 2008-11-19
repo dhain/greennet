@@ -20,13 +20,25 @@ class ConnectionLost(Exception):
     pass
 
 
-_hub = None
-def get_hub():
-    """Return the global Hub instance."""
-    global _hub
-    if _hub is None:
-        _hub = Hub()
-    return _hub
+try:
+    import threading
+    _hubs = threading.local()
+    def get_hub():
+        """Return the Hub instance for this thread."""
+        global _hubs
+        try:
+            return _hubs.hub
+        except AttributeError:
+            _hubs.hub = Hub()
+            return _hubs.hub
+except ImportError:
+    _hub = None
+    def get_hub():
+        """Return the global Hub instance."""
+        global _hub
+        if _hub is None:
+            _hub = Hub()
+        return _hub
 
 
 def schedule(task, *args, **kwargs):
