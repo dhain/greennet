@@ -19,7 +19,7 @@ setup(
         "Programming Language :: Python",
         "Topic :: Software Development :: Libraries :: Python Modules",
     ],
-    packages=find_packages(),
+    packages=find_packages(exclude='tests'),
     install_requires=[
         'py',
     ],
