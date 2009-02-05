@@ -19,8 +19,8 @@ modules = (
 )
 
 test_modules = (
-    'greennet.test.test_hub',
-    'greennet.test.test_queue',
+    'test_hub',
+    'test_queue',
 )
 
 
